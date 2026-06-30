@@ -133,6 +133,20 @@ local function ensureOpen()
     return true
 end
 
+
+local function closePort()
+    if widget.conn then
+        pcall(function()
+            if widget.conn.close then
+                widget.conn:close()
+            end
+        end)
+        widget.conn = nil
+        collectgarbage()
+        print("[SCC] port closed")
+    end
+end
+
 -- Drain into accumulator until total reaches FRAME_LEN starting at first
 -- occurrence of RESP_HDR (0x05). Skips TX echo and any pre-existing junk.
 local function readResponse(timeoutSec)
@@ -219,12 +233,14 @@ local function doRead()
         if ok then
             setStatus(string.format("OK: ID = %d  (try %d/%d)",
                                     widget.currentId, i, MAX_TRIES))
+            closePort()
             return
         end
         lastErr = err
         smallDelay(0.05)
     end
     setStatus(string.format("READ failed %d tries: %s", MAX_TRIES, lastErr))
+    closePort()
 end
 
 local function doWrite()
@@ -244,12 +260,14 @@ local function doWrite()
         if ok then
             setStatus(string.format("OK: ID set to %d  (try %d/%d)",
                                     widget.targetId, i, MAX_TRIES))
+            closePort()
             return
         end
         lastErr = err
         smallDelay(0.05)
     end
     setStatus(string.format("WRITE failed %d tries: %s", MAX_TRIES, lastErr))
+    closePort()
 end
 
 -- ============================================================================
@@ -301,4 +319,11 @@ local function init()
     })
 end
 
-return {init = init}
+local function destroy()
+    closePort()
+end
+
+return {
+    init = init,
+    destroy = destroy
+}
